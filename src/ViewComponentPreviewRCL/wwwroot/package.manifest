@@ -1,0 +1,7 @@
+{
+  "javascript": [
+    "~/App_Plugins/Preview/preview.controller.js",
+    "~/_framework/blazor.webassembly.js"
+  ],
+  "bundleOptions": "None"
+}

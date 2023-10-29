@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.DeliveryApi;
@@ -19,7 +21,9 @@ using Umbraco.Cms.Core.Web;
 using Umbraco.Cms.Web.BackOffice.Controllers;
 using Umbraco.Cms.Web.Common;
 using Umbraco.Cms.Web.Common.Controllers;
+using Umbraco.Extensions;
 using UmbracoProject.Models;
+using ViewComponentPreviewRCL.Services;
 using File = System.IO.File;
 using IHostingEnvironment = Umbraco.Cms.Core.Hosting.IHostingEnvironment;
 
@@ -27,6 +31,7 @@ namespace UmbracoProject.BackofficeControllers;
 
 public class PreviewController : UmbracoAuthorizedApiController
 {
+    private readonly UmbracoViewComponentService _umbracoViewComponentService;
     private readonly IApiElementBuilder _apiElementBuilder;
     private readonly IJsonSerializer _jsonSerializer;
     private readonly IProfilingLogger _profilingLogger;
@@ -39,11 +44,12 @@ public class PreviewController : UmbracoAuthorizedApiController
     private readonly ServiceContext _serviceContext;
     private readonly PropertyEditorCollection _propertyEditorCollection;
 
-    public PreviewController(IApiElementBuilder apiElementBuilder, IJsonSerializer jsonSerializer,
+    public PreviewController(UmbracoViewComponentService umbracoViewComponentService,IApiElementBuilder apiElementBuilder, IJsonSerializer jsonSerializer,
         IProfilingLogger profilingLogger, ILogger<PreviewController> logger, IContentTypeService contentTypeService,
         IPublishedContentTypeFactory publishedContentTypeFactory, IPublishedSnapshotAccessor publishedSnapshotAccessor,
         IPublishedModelFactory publishedModelFactory, IUmbracoContextAccessor umbracoContextAccessor, ServiceContext serviceContext, PropertyEditorCollection propertyEditorCollection)
     {
+        _umbracoViewComponentService = umbracoViewComponentService;
         _apiElementBuilder = apiElementBuilder;
         _jsonSerializer = jsonSerializer;
         _profilingLogger = profilingLogger;
@@ -92,10 +98,19 @@ public class PreviewController : UmbracoAuthorizedApiController
         
         
         
-        var converted = editor.ConvertIntermediateToObject(page, propertyType, PropertyCacheLevel.None, data.Value, false);
+        var converted = editor.ConvertIntermediateToObject(page, propertyType, PropertyCacheLevel.None, data.Value, false) as BlockGridModel;
+
+        if (converted == null)
+            return Content("");
         /*var model = converted[0];*/
-       
-        
+
+        var model = converted.FirstOrDefault();
+        var component = _umbracoViewComponentService.GetComponent(model.Content.ContentType.Alias);
+        return new ViewComponentResult()
+        {
+            ViewComponentName = component.Type.Name,
+            Arguments = model
+        };
         return Content("<h1>Hello World!</h1>");
     }
 }

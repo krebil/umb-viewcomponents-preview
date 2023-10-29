@@ -21,17 +21,18 @@ angular.module("umbraco").controller("preview.controller", function ($scope, edi
 
     let url = "/umbraco/backoffice/api/preview/GetPreview";
     $scope.setPreview = async (block) => {
-        console.log("setPreview", block)
+        let content =  this.removeBlockReference(Object.assign({}, block.data));
+        var settings = Object.assign({}, block.layout);
+        delete settings.$block
         let value = {
             layout: {},
-            contentData: property.value.contentData.filter(c => c.udi == block.data?.udi),
-            settingsData: property.value.settingsData.filter(c => c.udi == block.settingsData?.udi)
+            contentData: [block.data],
+            settingsData: [settings]
         };
-        value.layout[editorAlias] = [{
-            'contentUdi': block.data?.udi,
-            'settingsUdi': block.settingsData?.udi
-        }];
+        value.layout[editorAlias] = [settings];
 
+        console.log(value)
+        
         let response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -51,16 +52,43 @@ angular.module("umbraco").controller("preview.controller", function ($scope, edi
             this.vm.html = htmlResult;
         }
     };
-
+    this.removeBlockReference = (content) => {
+        Object.keys(content).forEach(key => {
+            if(key.startsWith("$"))
+            {
+                delete content[key]
+            }
+            else if(!Array.isArray(content[key]) && Object(content[key]) === content[key])
+            {
+                content[key] = this.removeBlockReference(content[key])
+            }
+            else if(Array.isArray(content[key]) || Object(content[key]) === content[key]){
+                content[key] = this.removeBlockReferenceFromArray(content[key])
+            }
+        })
+        return content;
+    }
+    this.removeBlockReferenceFromArray = (contentArr) => {
+        contentArr.forEach(item => {
+            if(Object(item) === item){
+                this.removeBlockReference(item)
+            }
+        })
+        return contentArr;
+    }
 
     this.vm.$onInit = () => {
-        console.log("onInit", block)
+        let init = 0;
         $scope.$watch('block.data', function (newVal, oldVal) {
-            $scope.setPreview($scope.block);
+            if(init > 0)
+                $scope.setPreview($scope.block);
+            init++;
         }, true);
 
         $scope.$watch('block.settingsData', function (newVal, oldVal) {
-            $scope.setPreview($scope.block);
+            if(init > 0)
+                $scope.setPreview($scope.block);
+            init++;
         }, true);
     }
     
